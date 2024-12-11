@@ -12,7 +12,7 @@ namespace CoxBox {
         double speed_mps;
         int spm;
         unsigned long time_elapsed;
-        float distance_m;
+        double distance_m;
     };
 
     class Workout {

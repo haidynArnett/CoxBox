@@ -199,7 +199,7 @@ namespace CoxBox {
         // display total distance
         display.setTextSize(data_size);
         display.setCursor(300 - ((String((int)workout_data.distance_m).length() * char_width * data_size) / 2),170);
-        display.printf("%d", workout_data.distance_m);
+        display.printf("%d", (int)workout_data.distance_m);
 
         display.setTextSize(word_size);
         display.setCursor(268,224);

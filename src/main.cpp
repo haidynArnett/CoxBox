@@ -54,32 +54,37 @@ volatile u_int16_t year;
 volatile u_int8_t month;
 volatile u_int8_t day;
 void readGPS() {
-  while (Serial1.available() > 0) {
-    if (gps.encode(Serial1.read())) {
-      if (gps.location.isValid())
-      {
-        current_latitude = gps.location.lat();
-        current_longitude = gps.location.lng();
-      }
-      if (gps.speed.isValid()) {
-        gps_speed = gps.speed.mps();
-      } else {
-        gps_speed = -1.0;
-      }
-      if (gps.satellites.isValid())
-        num_satellites = gps.satellites.value();
-      if (gps.time.isValid()) {
-        hour = gps.time.hour();
-        minute = gps.time.minute();
-        second = gps.time.second();
-      }
-      if (gps.date.isValid() && gps.date.isUpdated()) {
-        year = gps.date.year();
-        month = gps.date.month();
-        day = gps.date.day();
+  int count = 0;
+  // do {
+    while (Serial1.available() > 0) {
+      if (gps.encode(Serial1.read())) {
+        if (gps.location.isValid())
+        {
+          current_latitude = gps.location.lat();
+          current_longitude = gps.location.lng();
+        }
+        if (gps.speed.isValid()) {
+          gps_speed = gps.speed.mps();
+        } else {
+          gps_speed = -1.0;
+        }
+        if (gps.satellites.isValid())
+          num_satellites = gps.satellites.value();
+        if (gps.time.isValid()) {
+          hour = gps.time.hour();
+          minute = gps.time.minute();
+          second = gps.time.second();
+        }
+        if (gps.date.isValid() && gps.date.isUpdated()) {
+          year = gps.date.year();
+          month = gps.date.month();
+          day = gps.date.day();
+        }
       }
     }
-  }
+    count++;
+  // } while (satellites == 0 && count < 100);
+  
 }
 
 
@@ -89,12 +94,23 @@ void setup()
   Serial1.begin(GPS_BAUD);
   display.showHomeScreen();
   pinMode(HALL_PIN, INPUT);
-  Timer1.initialize(100000);
+  Timer1.initialize(1000);
   Timer1.attachInterrupt(isr);
 
   if (!SD.begin(SD_PIN)) {
       Serial.println("NO SD CARD!");
   }
+  // setup GPS
+  // bool valid_location = false;
+  // while (!valid_location) {
+  //   while (Serial1.available() > 0) {
+  //     if (gps.encode(Serial1.read())) {
+  //       if (gps.location.isValid())
+  //         valid_location = true;
+  //     }
+  //   }
+  // }
+
 }
 
 Screen current_screen = HOME;
@@ -195,27 +211,22 @@ void calculateSPM(bool magnet_detected) {
 }
 
 double distance_m;
-float last_lat = 0.0;
-float last_long = 0.0;
+float last_lat = -1.0;
+float last_long = -1.0;
 unsigned long last_timestamp;
 double calculateSpeed() {
-  if (last_lat == 0.0) {
+  if (last_lat == -1.0) {
     last_lat = current_latitude;
     last_long = current_longitude;
-    last_timestamp = millis();
-    distance_m = 0.0;
     return gps_speed;
   }
   double distance_from_last = gps.distanceBetween(last_lat, last_long, current_latitude, current_longitude);
-  if (distance_from_last > 2.5) {
-    distance_m = distance_from_last;
+  if (abs(distance_from_last) > 10) {
+    distance_m += abs(distance_from_last);
     last_lat = current_latitude;
     last_long = current_longitude;
-    double speed = distance_m / ((millis() - last_timestamp) * 1000);
-    last_timestamp = millis();
-    return speed;
+    return 1.0;
   } else {
-    distance_m = 0.0;
     return -1.0;
   }
 }
@@ -231,8 +242,9 @@ WorkoutData getWorkoutData() {
   // get split from GPS
   // get stroke rate from sensor
   calculateSPM(1 - digitalRead(HALL_PIN));
+  calculateSpeed();
   return {
-    calculateSpeed(), // speed mps
+    gps_speed, // speed mps
     strokes_per_minute, // stroke rate
     millis() - current_workout->start, // current duration
     distance_m // distance
